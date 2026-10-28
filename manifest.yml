@@ -20,9 +20,38 @@ modules:
           type: string
           description: The UUID of the Automation rule to analyze, not its numeric legacy ID.
           required: true
+    - key: get-rule-automation
+      name: Get Automation rule
+      function: getRuleForAutomation
+      actionVerb: GET
+      description: Retrieve a rule definition for a subsequent Rovo agent step. Requires a Jira administrator connection.
+      config:
+        resource: automation-config
+        render: native
+      inputs:
+        ruleUuid:
+          title: Rule UUID
+          type: string
+          description: The UUID of the Automation rule to analyze, not its numeric legacy ID.
+          required: true
+      outputs:
+        definition:
+          description: Rule definition as JSON, excluding separate connection metadata.
+          type: string
+          nullable: false
+      outputContext:
+        entityName: rule
+        outputType: OBJECT
+        outputDomain: automation
   function:
     - key: getAutomationRule
       handler: index.getAutomationRule
+    - key: getRuleForAutomation
+      handler: index.getRuleForAutomation
+  automation:actionProvider:
+    - key: automation-rule-provider
+      actions:
+        - get-rule-automation
 app:
   runtime:
     name: nodejs24.x
@@ -36,3 +65,6 @@ permissions:
     fetch:
       backend:
         - address: https://api.atlassian.com
+resources:
+  - key: automation-config
+    path: src/frontend/index.tsx

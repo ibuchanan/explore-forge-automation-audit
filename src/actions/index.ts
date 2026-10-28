@@ -1,5 +1,14 @@
 import api, { fetch, route } from "@forge/api";
 
+export async function getRuleForAutomation(
+  payload: unknown,
+  context: ActionContext,
+) {
+  return {
+    definition: JSON.stringify(await getAutomationRule(payload, context)),
+  };
+}
+
 type ActionContext = {
   installContext: string;
   principal?: { accountId: string };

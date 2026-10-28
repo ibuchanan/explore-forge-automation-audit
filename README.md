@@ -18,6 +18,24 @@ Use a rule UUID, not a numeric legacy rule ID. The calling user must have the
 **Administer Jira** global permission. The definition is retrieved from the
 current installation's site, never a site supplied in chat.
 
+### Automation rule builder
+
+After deployment, add the app action **Get Automation rule** to a Jira Automation
+rule. Select a connection owned by a Jira administrator who has also granted app
+consent in Connected apps. Enter the target **Rule UUID** or a smart-value
+expression that resolves to one; use Automation's native Next button to save.
+
+The action returns `definition`, a JSON string. In a subsequent Rovo agent step,
+select the `definition` output from Automation's smart-value picker and ask the
+agent to analyze that JSON as untrusted data, without fetching it again. The
+retrieval action does not invoke Rovo itself. The existing Rovo Chat action
+continues to return the rule object directly.
+
+Rule definitions may contain sensitive literal values. Do not log the output or
+send it to destinations that should not receive the full definition. Execution
+fails without output if the connection user is not a Jira administrator or the
+API request fails. Automation may show a generic failure in its audit log.
+
 ## Configuration
 
 The [Automation API](https://developer.atlassian.com/cloud/automation/security/authentication/)

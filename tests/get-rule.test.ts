@@ -11,7 +11,34 @@ vi.mock("@forge/api", () => ({
     String.raw({ raw: strings }, ...values),
 }));
 
-import { getAutomationRule } from "../src/actions";
+import { getAutomationRule, getRuleForAutomation } from "../src/actions";
+
+it("returns the definition as a JSON-string Automation output", async () => {
+  fetch.mockResolvedValue({
+    ok: true,
+    json: async () => ({
+      rule: { uuid: ruleUuid, name: "Example" },
+      connections: [{ secret: "excluded" }],
+    }),
+  });
+  await expect(getRuleForAutomation({ ruleUuid }, context)).resolves.toEqual({
+    definition:
+      '{"uuid":"0192e5ac-0e25-71de-ba7b-d972e6a2049a","name":"Example"}',
+  });
+});
+
+it("fails Automation execution when retrieval is denied, without producing an output", async () => {
+  requestJira.mockResolvedValue({
+    ok: true,
+    json: async () => ({
+      permissions: { ADMINISTER: { havePermission: false } },
+    }),
+  });
+  await expect(getRuleForAutomation({ ruleUuid }, context)).rejects.toThrow(
+    "Jira administrator permission is required",
+  );
+  expect(fetch).not.toHaveBeenCalled();
+});
 
 const cloudId = "182b9218-d56a-453d-9659-3f29ea2aa7eb";
 const ruleUuid = "0192e5ac-0e25-71de-ba7b-d972e6a2049a";

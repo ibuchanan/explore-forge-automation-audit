@@ -1,1 +1,1 @@
-export { getAutomationRule } from "./actions";
+export { getAutomationRule, getRuleForAutomation } from "./actions";
