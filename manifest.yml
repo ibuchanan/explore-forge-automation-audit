@@ -38,7 +38,7 @@ app:
   id: ari:cloud:ecosystem::app/2917edfa-01fe-4926-8073-5d7b4700ac40
 resources:
   - key: main-resource
-    path: src/frontend/index.jsx
+    path: src/frontend/index.tsx
 permissions:
   scopes:
     - write:jira-work

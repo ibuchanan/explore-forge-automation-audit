@@ -1,47 +1,51 @@
-# Forge automation action add comment
+> Please remove this quote block and replace the others with meaningful content. If you're looking at this on Bitbucket, be assured that it looks great on GitHub.
 
-Forge automation action is currently in EAP, see the [documentation](https://developer.atlassian.com/platform/forge/manifest-reference/modules/automation-action/) for more details.
+# automation-action-ui-kit
 
-This project contains a Forge app written in Javascript that adds a new custom action in Automation that can be used to add a Jira comment.
+[![Atlassian license](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE) [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](CONTRIBUTING.md)
 
-See [developer.atlassian.com/platform/forge/](https://developer.atlassian.com/platform/forge) for documentation and tutorials explaining Forge.
+> Provide an introduction/overview of your project, and articulate the problem it solves for the broader engineering community. Potential consumers should understand **what** the project is, and **why** it exists.
 
-## Requirements
+> Other recommended badges are a [version](https://shields.io/category/version) badge (e.g. `npm`) and a [build](https://shields.io/category/build) badge (e.g., `circleci` or `travis`). Order should be `license - version - build - PRs`. Please use the `flat-sqare` style.
+>
+> See e.g.
+>
+> [![npm version](https://img.shields.io/npm/v/react-beautiful-dnd.svg?style=flat-square)](https://www.npmjs.com/package/react-beautiful-dnd) [![npm version](https://img.shields.io/npm/v/@atlaskit/button.svg?style=flat-square)](https://www.npmjs.com/package/@atlaskit/button) [![Build Status](https://img.shields.io/travis/stricter/stricter/master?style=flat-square)](https://travis-ci.org/stricter/stricter)
 
-See [Set up Forge](https://developer.atlassian.com/platform/forge/set-up-forge/) for instructions to get set up.
 
-## Quick start
+## Usage
 
-- Modify your app frontend by editing the `src/frontend/index.jsx` file.
+> Provide a simple and concise (code) example of your project. Consumers should understand **how** your project solves their problem.
 
-- Modify your app actions by editing the `src/actions/index.js` file.
+## Installation
 
-- Modify your app backend by editing the `src/resolvers/index.js` file to define resolver functions. See [Forge resolvers](https://developer.atlassian.com/platform/forge/runtime-reference/custom-ui-resolver/) for documentation on resolver functions.
+> Provide instructions on how to install and configure the project.
 
-- Build and deploy your app by running:
+## Documentation
 
-```sh
-forge deploy
-```
+> If your project is small and simple enough, documentation can be added here. For larger projects, provide a link to where the documentation lives.
 
-- Install your app in an Atlassian site by running:
+## Tests
 
-```sh
-forge install
-```
+> Describe and show how to run the tests with code examples.
 
-- Develop your app by running `forge tunnel` to proxy invocations locally:
+## Contributions
 
-```sh
-forge tunnel
-```
+Contributions to automation-action-ui-kit are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
-### Notes
+## License
 
-- Use the `forge deploy` command when you want to persist code changes.
-- Use the `forge install` command when you want to install the app on a new site.
-- Once the app is installed on a site, the site picks up the new app changes you deploy without needing to rerun the install command.
+Copyright (c) [YYYY] Atlassian US., Inc.
+Apache 2.0 licensed, see [LICENSE](LICENSE) file.
 
-## Support
+<br/>
 
-See [Get help](https://developer.atlassian.com/platform/forge/get-help/) for how to get help and provide feedback.
+> Pick one of the following:
+
+[![With ❤️ from Atlassian](https://raw.githubusercontent.com/atlassian-internal/oss-assets/master/banner-cheers.png)](https://www.atlassian.com)
+
+[![With ❤️ from Atlassian](https://raw.githubusercontent.com/atlassian-internal/oss-assets/master/banner-with-thanks.png)](https://www.atlassian.com)
+
+[![With ❤️ from Atlassian](https://raw.githubusercontent.com/atlassian-internal/oss-assets/master/banner-with-thanks-light.png)](https://www.atlassian.com)
+
+[![With ❤️ from Atlassian](https://raw.githubusercontent.com/atlassian-internal/oss-assets/master/banner-cheers-light.png)](https://www.atlassian.com)
