@@ -24,7 +24,6 @@ always encrypted. Fence Rider is development tooling, not part of the deployed
 app.
 
 Complete these steps from the repository root before your first Forge workflow:
-
 1. Install the tools described in Fence Rider's [installation guide][installation].
    Dependency installation supplies Fence Rider, but you also need Bun,
    SecretSpec, and the Forge CLI available on `PATH`. Follow the
