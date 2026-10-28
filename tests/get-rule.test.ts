@@ -1,4 +1,78 @@
-import { beforeEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
+
+const logOutput: string[] = [];
+afterEach(() => vi.restoreAllMocks());
+
+it("logs the permission HTTP failure stage and status without response secrets", async () => {
+  requestJira.mockResolvedValue({
+    ok: false,
+    status: 401,
+    json: async () => ({ secret: "response-secret" }),
+  });
+  await expect(getAutomationRule({ ruleUuid }, context)).rejects.toThrow(
+    "Unable to verify Jira administrator permission",
+  );
+  const records = logOutput.map((line) => JSON.parse(line));
+  expect(records).toContainEqual(
+    expect.objectContaining({
+      event: "permission.check.failed",
+      stage: "http",
+      status: 401,
+      permission: "ADMINISTER",
+    }),
+  );
+  expect(logOutput.join()).not.toContain("response-secret");
+  expect(logOutput.join()).not.toContain("test-token");
+});
+
+it("distinguishes Forge authentication exceptions without logging their messages", async () => {
+  requestJira.mockRejectedValue(
+    Object.assign(new Error("test-token private-message"), {
+      code: "NEEDS_AUTHENTICATION_ERR",
+    }),
+  );
+  await expect(getAutomationRule({ ruleUuid }, context)).rejects.toThrow(
+    "Unable to verify Jira administrator permission",
+  );
+  expect(logOutput.map((line) => JSON.parse(line))).toContainEqual(
+    expect.objectContaining({
+      event: "permission.check.failed",
+      stage: "request",
+      errorCode: "NEEDS_AUTHENTICATION_ERR",
+    }),
+  );
+  expect(logOutput.join()).not.toMatch(/test-token|private-message/);
+});
+
+it("records retrieval progress without logging rule content or credentials", async () => {
+  fetch.mockResolvedValue({
+    ok: true,
+    status: 200,
+    json: async () => ({
+      rule: {
+        uuid: ruleUuid,
+        name: "private-rule-name",
+        components: [{ value: "literal-secret" }],
+      },
+    }),
+  });
+  await getRuleForAutomation({ ruleUuid }, context);
+  const events = logOutput.map((line) => JSON.parse(line).event);
+  expect(events).toEqual(
+    expect.arrayContaining([
+      "action.started",
+      "permission.check.started",
+      "permission.check.allowed",
+      "rule.fetch.started",
+      "rule.fetch.response",
+      "rule.fetch.completed",
+      "automation.output.ready",
+    ]),
+  );
+  expect(logOutput.join()).not.toMatch(
+    /private-rule-name|literal-secret|test-token|automation@example.com/,
+  );
+});
 
 const { requestJira, fetch } = vi.hoisted(() => ({
   requestJira: vi.fn(),
@@ -49,6 +123,12 @@ const context = {
 
 beforeEach(() => {
   vi.resetAllMocks();
+  logOutput.length = 0;
+  for (const level of ["info", "warn", "error", "debug"] as const) {
+    vi.spyOn(console, level).mockImplementation((line: string) => {
+      logOutput.push(line);
+    });
+  }
   vi.stubEnv("AUTOMATION_API_EMAIL", "automation@example.com");
   vi.stubEnv("AUTOMATION_API_TOKEN", "test-token");
   requestJira.mockResolvedValue({
