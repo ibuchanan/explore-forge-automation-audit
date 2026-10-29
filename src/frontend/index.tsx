@@ -37,7 +37,10 @@ function RuleForm({ ruleUuid }: { ruleUuid: string }) {
         isRequired
         onChange={async (event) => {
           await onChange(event);
-          await save({ ruleUuid: event.target.value });
+          // Persist only values that pass the same validation as submit.
+          if (event.target.value.trim()) {
+            await save({ ruleUuid: event.target.value });
+          }
         }}
       />
       <HelperMessage>
@@ -53,12 +56,14 @@ function RuleForm({ ruleUuid }: { ruleUuid: string }) {
   );
 }
 
+/** Shape of the Automation action extension: saved inputs live under `data`. */
+type ActionConfigExtension = { data?: { inputs?: { ruleUuid?: string } } };
+
 export function AutomationConfig() {
   const context = useProductContext();
   if (!context) return <Text>Loading configuration...</Text>;
-  return (
-    <RuleForm ruleUuid={context.extension["data"]?.inputs?.ruleUuid ?? ""} />
-  );
+  const { data } = context.extension as ActionConfigExtension;
+  return <RuleForm ruleUuid={data?.inputs?.ruleUuid ?? ""} />;
 }
 
 ForgeReconciler.render(
