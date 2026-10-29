@@ -1,7 +1,151 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
+const cloudId = "182b9218-d56a-453d-9659-3f29ea2aa7eb";
+const ruleUuid = "0192e5ac-0e25-71de-ba7b-d972e6a2049a";
+const context = {
+  installContext: `ari:cloud:jira::site/${cloudId}`,
+  principal: { accountId: "admin" },
+};
+
 const logOutput: string[] = [];
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllEnvs();
+});
+
+it.each([
+  { name: "invalid input", status: 400, payload: {}, setup: () => {} },
+  {
+    name: "permission denied",
+    status: 403,
+    payload: { ruleUuid },
+    setup: () =>
+      requestJira.mockResolvedValue({ ok: true, json: async () => ({}) }),
+  },
+  {
+    name: "missing credentials",
+    status: 500,
+    payload: { ruleUuid },
+    setup: () => vi.stubEnv("AUTOMATION_API_TOKEN", ""),
+  },
+  {
+    name: "permission JSON failure",
+    status: 502,
+    payload: { ruleUuid },
+    setup: () =>
+      requestJira.mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => {
+          throw new Error("private-message test-token");
+        },
+      }),
+  },
+  ...[401, 403, 404, 429, 500].map((status) => ({
+    name: `upstream HTTP ${status}`,
+    status,
+    payload: { ruleUuid },
+    setup: () =>
+      fetch.mockResolvedValue({
+        ok: false,
+        status,
+        json: vi.fn(() => {
+          throw new Error("response-secret");
+        }),
+      }),
+  })),
+])(
+  "rejects $name with a safe Problem Details cause and one failure summary",
+  async ({ status, payload, setup }) => {
+    setup();
+    await expect(getRuleForAutomation(payload, context)).rejects.toMatchObject({
+      cause: {
+        type: `https://httpstatuses.io/${status}`,
+        status,
+        title: expect.any(String),
+        detail: expect.any(String),
+        timestamp: expect.any(String),
+      },
+    });
+    const records = logOutput.map((line) => JSON.parse(line));
+    const failures = records.filter((record) => record.outcome === "failure");
+    expect(failures).toHaveLength(1);
+    expect(failures[0]).toMatchObject({
+      action: "get-rule-automation",
+      requestId: expect.any(String),
+      status,
+      durationMs: expect.any(Number),
+      detail: expect.any(String),
+    });
+    expect(
+      records.every((record) => record.requestId === failures[0].requestId),
+    ).toBe(true);
+    expect(records.some((record) => record.outcome === "success")).toBe(false);
+    expect(
+      records.some((record) => record.event === "automation.output.ready"),
+    ).toBe(false);
+    expect(logOutput.join()).not.toMatch(
+      /private-message|test-token|response-secret/,
+    );
+  },
+);
+
+it("isolates concurrent action logs and records exactly one completion per invocation", async () => {
+  fetch.mockImplementation(async () => ({
+    ok: true,
+    status: 200,
+    json: async () => ({ rule: { uuid: ruleUuid, name: "private-rule-name" } }),
+  }));
+  await Promise.all([
+    getAutomationRule({ ruleUuid }, context),
+    getRuleForAutomation({ ruleUuid }, context),
+  ]);
+  const records = logOutput.map((line) => JSON.parse(line));
+  const requestIds = new Set(records.map((record) => record.requestId));
+  expect(requestIds.size).toBe(2);
+  for (const requestId of requestIds) {
+    expect(requestId).toMatch(/^[0-9a-f-]{36}$/);
+    const invocation = records.filter(
+      (record) => record.requestId === requestId,
+    );
+    expect(new Set(invocation.map((record) => record.action)).size).toBe(1);
+    expect(
+      invocation.filter((record) => record.outcome === "success"),
+    ).toHaveLength(1);
+    expect(invocation.at(-1)).toMatchObject({
+      outcome: "success",
+      durationMs: expect.any(Number),
+    });
+  }
+  expect(logOutput.join()).not.toMatch(
+    /private-rule-name|test-token|automation@example.com|admin/,
+  );
+});
+
+it("sanitizes unexpected output failures instead of returning a successful Automation output", async () => {
+  const rule = {
+    uuid: ruleUuid,
+    toJSON: () => {
+      throw new Error("private-message test-token");
+    },
+  };
+  fetch.mockResolvedValue({
+    ok: true,
+    status: 200,
+    json: async () => ({ rule }),
+  });
+  await expect(
+    getRuleForAutomation({ ruleUuid }, context),
+  ).rejects.toMatchObject({
+    message: "Unexpected failure while retrieving the rule",
+    cause: { status: 500 },
+  });
+  const records = logOutput.map((line) => JSON.parse(line));
+  expect(records.at(-1)).toMatchObject({ outcome: "failure", status: 500 });
+  expect(logOutput.join()).not.toMatch(
+    /private-message|test-token|automation.output.ready/,
+  );
+});
 
 it("logs the permission HTTP failure stage and status without response secrets", async () => {
   requestJira.mockResolvedValue({
@@ -113,13 +257,6 @@ it("fails Automation execution when retrieval is denied, without producing an ou
   );
   expect(fetch).not.toHaveBeenCalled();
 });
-
-const cloudId = "182b9218-d56a-453d-9659-3f29ea2aa7eb";
-const ruleUuid = "0192e5ac-0e25-71de-ba7b-d972e6a2049a";
-const context = {
-  installContext: `ari:cloud:jira::site/${cloudId}`,
-  principal: { accountId: "admin" },
-};
 
 beforeEach(() => {
   vi.resetAllMocks();

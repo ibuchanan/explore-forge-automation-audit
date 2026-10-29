@@ -81,6 +81,27 @@ The app fetches `GET /automation/public/jira/{cloudId}/rest/v1/rule/{ruleUuid}`
 and returns the response's `rule` object to the agent. API status failures are
 reported without response bodies; credentials and definitions are not logged.
 
+## Action diagnostics
+
+Backend actions use `@forge-ahead/errors` Results and RFC 9457 Problem Details
+internally. The Forge boundary throws an error with a sanitized problem as its
+cause, so failed retrievals never become successful Automation outputs.
+Validation, missing context, and denied access use statuses 400, 401, and 403;
+missing configuration uses 500; transport or invalid-response failures use 502.
+Automation API HTTP failures retain the upstream status.
+
+Structured `@forge-ahead/logging` records include an action name and a generated
+`requestId` shared by all records for that invocation. Progress events identify
+permission checks, credential availability, API response status, and decoding or
+definition failures. Each run ends with one `outcome` and `durationMs` summary;
+failure summaries include the sanitized problem status, type, and detail.
+`LOG_LEVEL` controls verbosity. These records are backend Forge logs, not
+Automation audit-log entries.
+
+Logs exclude payloads, user identifiers, credentials, rule definitions, response
+bodies, and raw exception messages or stacks. HTTP error bodies are deliberately
+not read or retained, even in bounded form.
+
 ## Contributions
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) and [DEVELOPMENT.md](DEVELOPMENT.md).
