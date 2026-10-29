@@ -10,7 +10,7 @@ modules:
         - get-automation-rule
   action:
     - key: get-automation-rule
-      name: Get Automation rule
+      name: Get Automation rule for Rovo
       function: getAutomationRule
       actionVerb: GET
       description: Fetch a Jira Automation rule definition by UUID from this installation for analysis. Requires a signed-in Jira administrator.
@@ -60,6 +60,8 @@ app:
   id: ari:cloud:ecosystem::app/2917edfa-01fe-4926-8073-5d7b4700ac40
 permissions:
   scopes:
+    # Accepted risk: this sample app uses the classic scope rather than granular ones.
+    # ast-grep-ignore: no-classic-product-scopes
     - read:jira-work
   external:
     fetch:
