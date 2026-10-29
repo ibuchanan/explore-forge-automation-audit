@@ -1,86 +1,155 @@
 # Development
 
-Install dependencies with `npm install`.
-Run the checks before sending a pull request:
+This is the contributor workflow for Automation Analyst. For a guided path
+from your own repository to the first Rovo analysis, use the
+[installation tutorial](docs/tutorials/tutorial.md). For user-facing behavior,
+start at the [README](README.md); for module contracts and the reasons behind
+the two actions, see the [reference](docs/reference/reference.md) and
+[explanation](docs/explanation/explanation.md).
+
+## Local prerequisites and checks
+
+Install [Bun](https://bun.sh/docs/installation) and the repository
+dependencies with `bun install`. To work with a deployed app you also need
+the [Forge CLI][forge-setup], [SecretSpec](https://secretspec.dev), and
+[Fence Rider prerequisites][installation]. Authenticate the Forge CLI
+separately from the Automation API credentials. Fence Rider is a development
+tool, not a deployed runtime dependency.
+
+After editing, run the repository's checks from its root:
 
 ```sh
-npm run lint
-npm run lint:docs
-npm run format:check
-npm run typecheck
-npm run test
+bun run check
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the contribution process.
+The `check` script invokes repository lint (Biome, Forge manifest lint,
+static rules, format, and typecheck), the Vitest suite, and build/bundle
+size checks. It calls `npm` internally via package scripts. It does **not**
+include Markdown lint; for changed docs run:
+
+```sh
+bun run lint:docs
+```
+
+The docs linter checks every Markdown file and may report pre-existing
+issues in unrelated files. For a focused test during editing, use
+`bun run test` for the suite or `bun run test:watch` for a watch loop;
+`bun run typecheck` and `bun run build` are available separately. `build`
+writes `dist/`, which is ignored by Git. Keep generated output and local
+secret files out of commits. See [CONTRIBUTING.md](CONTRIBUTING.md) for the
+pull-request process.
 
 ## First-time Forge setup with Fence Rider
 
-The `forge:*` package scripts use [Fence Rider][fence-rider] to wrap the
-Forge CLI. It resolves configuration declared in `secretspec.toml` through
-[SecretSpec](https://secretspec.dev) and your chosen secret provider. Local
-controls select the site, product, and environment; manifest inputs are supplied
-to Forge locally; only variables listed in `[scopes.runtime]` are uploaded,
-always encrypted. Fence Rider is development tooling, not part of the deployed
-app.
-
-Complete these steps from the repository root before your first Forge workflow:
-1. Install the tools described in Fence Rider's [installation guide][installation].
-   Dependency installation supplies Fence Rider, but you also need Bun,
-   SecretSpec, and the Forge CLI available on `PATH`. Follow the
-   [Forge getting-started guide][forge-setup] to authenticate; Fence Rider does
-   not install these tools or log you in. Check the installed tool versions:
-
-   ```sh
-   bun run fence-rider doctor
-   ```
-
-   This checks tools only, not whether your app configuration resolves.
-
-2. Confirm access to the app and development site you intend to use. If you
-   cloned a sample and need your own app registration, follow the
-   [`forge register` reference][register] once. Registration changes the app ID
-   in `manifest.yml`; do not repeat it for an app you already own or are
-   authorized to develop.
-
-3. Follow [workstation provider setup][providers], then
-   [app requirements and secret storage][app-secrets]. Review this repository's
-   existing `secretspec.toml` rather than replacing it: retain its project name,
-   configure provider routes, and store values in your approved provider.
-   Commit declarations, never credentials or a secret value as a `default`.
-   Keep any local value files out of Git.
-
-4. Review the [local target settings][local] for `FORGE_SITE`, `FORGE_PRODUCT`,
-   and `FORGE_ENVIRONMENT` in the default profile. Choose your development site
-   and environment before continuing. These controls stay local; do not add
-   them to `[scopes.runtime]`. If the app uses manifest inputs, follow the
-   [manifest configuration guide][manifest]. Check resolution without printing
-   secret values:
+The repository's `forge:*` scripts use [Fence Rider][fence-rider] to wrap
+the Forge CLI. It resolves values declared in `secretspec.toml` through
+[SecretSpec](https://secretspec.dev) and a secret provider chosen on your
+workstation. `FORGE_SITE`, `FORGE_PRODUCT` (default `jira`), and
+`FORGE_ENVIRONMENT` (default `development`) are local target controls.
+`AUTOMATION_API_EMAIL` and `AUTOMATION_API_TOKEN` are the only variables
+listed under `[scopes.runtime]`; Fence Rider uploads them encrypted. The
+Automation API email/token are distinct from the credentials used to log in
+to the Forge CLI.
+1. Install and authenticate the tools using the [Forge setup][forge-setup]
+   and [Fence Rider installation][installation] instructions. Verify the
+   tools with `bun run fence-rider doctor`; this does not check whether your
+   app configuration resolves.
+2. If this source tree is a fork or clone and you need a **new** Forge app
+   under your account, run `bun run forge:register` once. Registration
+   changes `app.id` in `manifest.yml`. Do not register again when updating
+   an app you already own or are authorized to develop; it would create a
+   different app. Follow the [`forge register` reference][register].
+3. Follow the [provider setup][providers] and [app secrets][app-secrets]
+   guidance. Retain this repository's project name and requirements in
+   `secretspec.toml`; bind provider roles in your local configuration. Store
+   the email and token in your approved provider, not in Git, a rule input,
+   or Rovo Chat. Do not add secret values as defaults in the TOML file.
+4. Choose your Jira site and environment using the [local target
+   settings][local]. Keep `FORGE_*` controls local; do not put them in
+   `[scopes.runtime]`. Verify resolution without printing secret values:
 
    ```sh
    SECRETSPEC_PROFILE=default bun run fence-rider doctor --resolve
    ```
 
-   This may access your provider and require authentication. It does not
-   display or confirm the target values; review those separately.
-
-5. Once authorized to change the selected app, site, and environment, upload
-   runtime variables, deploy, and install:
+   This may authenticate with the provider; it does not display or verify
+   the target values. Review those separately in your provider settings.
+5. Review the manifest's `read:jira-work` scope and backend egress to
+   `https://api.atlassian.com` before deploying. Once authorized to change
+   your selected app, environment, and site, upload variables, deploy, and
+   install in that order:
 
    ```sh
-   npm run forge:variables:set && npm run forge:deploy && npm run forge:install
+   bun run forge:variables:set
+   bun run forge:deploy
+   bun run forge:install
    ```
 
-   **These commands change remote state.** Keep the same configured environment
-   for upload and deployment; do not override only the deployment target.
-   Stored runtime variables become active on the subsequent deployment.
-   For code-only changes with unchanged runtime values, run `npm run forge:deploy`.
-   After permission scope changes, run `npm run forge:upgrade` for existing
-   installations. See [runtime workflows][runtime] and
-   [installation management][forge-tooling] for details.
+   **These commands change remote state.** Keep the same environment for
+   upload and deployment. Runtime-variable changes require a subsequent
+   deployment to become active. For code-only changes with unchanged
+   variables, use `bun run forge:deploy`. After a scope change, deploy and
+   then use `bun run forge:upgrade` for existing installations to refresh
+   consent. See [runtime workflows][runtime] and
+   [installation management][forge-tooling]. Do not deploy or install to a
+   site without authorization.
 
-For a guided exercise with disposable values, follow the
-[Fence Rider tutorial][tutorial]. Its example script names differ from this
-repository's `forge:*` names; use the scripts in this repository's `package.json`.
+The [Fence Rider tutorial][tutorial] is useful for learning its provider
+workflow; its example script names may differ from this repository's
+`forge:*` scripts. See the [app tutorial](docs/tutorials/tutorial.md) for
+an end-to-end smoke test in Rovo Chat.
+
+## Code map and test boundaries
+
+- `manifest.yml`: Rovo agent, two `action` entries, Automation action
+  provider, functions, UI Kit resource, scope, and egress declarations.
+- `src/index.ts`: Forge handler exports.
+- `src/actions/index.ts`: two action entry points and shared retrieval flow;
+  Rovo receives the rule object, while Automation receives `definition` as
+  JSON text.
+- `src/actions/automation-api.ts`: UUID and signed installation context
+  validation, runtime credentials, and one Automation API rule request.
+- `src/actions/permissions.ts`: caller's Jira **Administer Jira** permission
+  check using `asUser()` before the shared token is used.
+- `src/actions/support.ts`: safe HTTP failure conversion and structured
+  logging without response bodies or rule definitions.
+- `src/frontend/index.tsx`: native Automation action UI Kit form; restores
+  the saved UUID or smart value and submits validated changes through Bridge.
+- `tests/get-rule.test.ts`: action outputs, validation, permission failures,
+  API errors, and sensitive-data handling with mocked Forge API boundaries.
+- `tests/automation-config.test.tsx`: form state, saved values, validation,
+  and Bridge submission behavior.
+- `docs/`: separate [tutorial](docs/tutorials/tutorial.md),
+  [how-to](docs/how-to/how-to.md), [reference](docs/reference/reference.md),
+  and [explanation](docs/explanation/explanation.md).
+
+Unit tests do not exercise a live Automation API, a real administrator
+connection, or Rovo's interpretation. After an authorized deployment, smoke
+test with a non-sensitive rule UUID on the target Jira site and check both
+the Chat result and, if applicable, the Automation action's `definition`
+output in a later step. Never log or paste a secret-bearing definition.
+
+## Diagnosing an action failure
+
+The action rejects failures rather than returning a successful Automation
+output with an error value. A missing/invalid UUID yields 400, missing
+signed-in context 401, and denied Jira admin permission 403. Missing Forge
+credentials yield 500; transport and invalid response failures yield 502.
+An Automation API HTTP failure retains its upstream status. Automation's
+audit log may show a generic failure, so check Forge backend logs for the
+selected environment with [`forge logs`][logs].
+
+Structured log entries from `@forge-ahead/logging` share a generated
+`requestId` per invocation, carry an action name and progress events, and
+end with an `outcome` and `durationMs` summary. `LOG_LEVEL` controls
+verbosity. Logs deliberately omit payloads, user identifiers, tokens,
+rule definitions, HTTP response bodies, and raw exception messages or
+stacks. These are Forge backend logs, not Automation audit entries.
+Check the UUID and site first, then the caller's permission or connection
+consent, environment credential availability, and the upstream status;
+do not copy secrets or rule JSON into bug reports. The
+[reference](docs/reference/reference.md#retrieval-and-permissions)
+lists the exact contracts.
 
 [fence-rider]: https://github.com/ibuchanan/ranch-rig-fence-rider
 [installation]: https://github.com/ibuchanan/ranch-rig-fence-rider/blob/main/docs/how-to/installation.md
@@ -89,17 +158,7 @@ repository's `forge:*` names; use the scripts in this repository's `package.json
 [providers]: https://github.com/ibuchanan/ranch-rig-fence-rider/blob/main/docs/how-to/configure-user-providers.md
 [app-secrets]: https://github.com/ibuchanan/ranch-rig-fence-rider/blob/main/docs/how-to/configure-app-secrets.md
 [local]: https://github.com/ibuchanan/ranch-rig-fence-rider/blob/main/docs/how-to/local.md
-[manifest]: https://github.com/ibuchanan/ranch-rig-fence-rider/blob/main/docs/how-to/manifest.md
 [runtime]: https://github.com/ibuchanan/ranch-rig-fence-rider/blob/main/docs/how-to/runtime.md
 [forge-tooling]: https://github.com/ibuchanan/ranch-rig-fence-rider/blob/main/docs/how-to/use-forge-tooling.md
 [tutorial]: https://github.com/ibuchanan/ranch-rig-fence-rider/blob/main/docs/tutorials/tutorial.md
-
-## Repository layout
-
-- `.atlassian/`: Repository ownership metadata.
-- `src/`: TypeScript source code.
-- `docs/`: Diataxis guides, reference, explanations, and tutorials.
-- `specs/`: Specifications and reference material; excluded from Biome checks.
-- `dist/`: Build output; ignored by Git and excluded from Biome checks.
-- `test/`: Forge app tests (Vitest) and optional evaluations.
-- `scripts/`: Forge setup and deployment helpers.
+[logs]: https://developer.atlassian.com/platform/forge/cli-reference/logs/

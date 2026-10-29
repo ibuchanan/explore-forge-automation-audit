@@ -3,109 +3,71 @@
 [![Atlassian license](https://img.shields.io/badge/license-Apache%202.0-blue.svg?style=flat-square)](LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](CONTRIBUTING.md)
 
-A Forge Rovo agent that fetches a Jira Automation rule definition by UUID and
-analyzes its trigger, conditions, branches, actions, and potential risks.
-It does not change rules or post comments.
+A read-only [Forge](https://developer.atlassian.com/platform/forge/) app
+that lets a Rovo agent retrieve **one Jira Automation rule by UUID** and
+analyze its trigger, conditions, branches, actions, and possible risks.
+It also provides a **Get Automation rule** action for the Automation rule
+builder, whose output can be passed to a later Rovo agent step.
 
-## Usage
+**Use it for:** reviewing a known rule's definition on the Jira site where
+this app is installed. **Not for:** listing rules, measuring executions or
+charges, inspecting audit logs, or changing rules. AI analysis suggests
+risks; verify conclusions against the rule and its audit log. For a billing
+review, follow the [rule-review how-to](docs/how-to/how-to.md).
 
-Select **Automation Analyst** in Rovo Chat on the Jira site where the app is
-installed, then ask:
+## Try it
+
+You need a Jira site with Rovo Chat, permission to install Forge apps, a
+signed-in user with **Administer Jira** permission, and a rule UUID (not its
+numeric legacy ID). To run your own copy, [fork and install the app using the
+tutorial](docs/tutorials/tutorial.md); it covers registration, deployment,
+secrets, and a first run. After installation, select **Automation Analyst** in
+Rovo Chat on that site and ask:
 
 > Analyze Automation rule 0192e5ac-0e25-71de-ba7b-d972e6a2049a.
 
-Use a rule UUID, not a numeric legacy rule ID. The calling user must have the
-**Administer Jira** global permission. The definition is retrieved from the
-current installation's site, never a site supplied in chat.
+Replace the example UUID with your rule's UUID. The agent retrieves the
+rule, then reports what the definition shows and what would need further
+verification. It does not execute the rule.
 
-### Automation rule builder
+In the Automation builder, add **Get Automation rule**, select a connection
+owned by a Jira administrator who has granted app consent, and enter a rule
+UUID or smart value resolving to one. Save with the native **Next** button.
+Its `definition` output is JSON text for subsequent steps; add a separate
+Rovo agent step if you want it analyzed. Retrieval alone does not invoke Rovo.
 
-After deployment, add the app action **Get Automation rule** to a Jira Automation
-rule. Select a connection owned by a Jira administrator who has also granted app
-consent in Connected apps. Enter the target **Rule UUID** or a smart-value
-expression that resolves to one; use Automation's native Next button to save.
+## Before installing
 
-The action returns `definition`, a JSON string. In a subsequent Rovo agent step,
-select the `definition` output from Automation's smart-value picker and ask the
-agent to analyze that JSON as untrusted data, without fetching it again. The
-retrieval action does not invoke Rovo itself. The existing Rovo Chat action
-continues to return the rule object directly.
+The Automation API requires an Atlassian account email and API token, stored
+as encrypted Forge runtime variables (`AUTOMATION_API_EMAIL` and
+`AUTOMATION_API_TOKEN`) separately for each environment. The app checks the
+caller's Jira admin permission using `read:jira-work`, then reads the rule
+with that token over backend egress to `https://api.atlassian.com`. The token
+account determines which rules can be read; use a dedicated account with the
+least access needed. The app does not impersonate the caller for this API.
 
-Rule definitions may contain sensitive literal values. Do not log the output or
-send it to destinations that should not receive the full definition. Execution
-fails without output if the connection user is not a Jira administrator or the
-API request fails. Automation may show a generic failure in its audit log.
+Rule definitions can contain sensitive literal values. Do not use this app
+for rules containing secrets in literals or route its output to an untrusted
+recipient. The separate API connection metadata is excluded, but the rule
+definition itself goes to Rovo for analysis. Never paste tokens into chat,
+rule inputs, or source control. Review the [trust boundary and two action
+entry points](docs/explanation/explanation.md) before authorizing the app.
 
-## Configuration
+## Documentation
 
-The [Automation API](https://developer.atlassian.com/cloud/automation/security/authentication/)
-requires Basic authentication with an Atlassian account email and API token;
-Forge OAuth authentication is not supported for rule retrieval.
-Configure these runtime variables separately in each Forge environment:
+- [Install and try the app](docs/tutorials/tutorial.md) — guided admin setup
+  and first analysis.
+- [Review rules before the billing date](docs/how-to/how-to.md) — usage-led
+  triage; the app is not a billing calculator.
+- [Modules and runtime libraries](docs/reference/reference.md) — Forge
+  wiring, inputs, outputs, permissions, and links to platform docs.
+- [Why Rovo needs a Forge action](docs/explanation/explanation.md) — the
+  retrieval and authorization model.
+- [Development](DEVELOPMENT.md) — local tools, checks, diagnostics, and
+  deployment safeguards for contributors.
 
-| Variable               | Value                                             |
-| ---------------------- | ------------------------------------------------- |
-| `AUTOMATION_API_EMAIL` | Email of the account owning the token             |
-| `AUTOMATION_API_TOKEN` | API token whose account can read the target rules |
+## Contributing and license
 
-Store the token encrypted. Never put credentials in source control, rule inputs,
-or Rovo Chat. The existing `npm run forge:variables:set` workflow uses
-`secretspec.toml` to upload both variables encrypted to the selected environment.
-See [DEVELOPMENT.md](DEVELOPMENT.md) for local secret-provider setup.
-Redeploy after changing Forge runtime variables.
-
-The token account determines which rules the API can read. This app additionally
-restricts invocation to Jira administrators; it does not impersonate the caller
-for Automation access. Use a dedicated, least-privilege account. Administrators
-may see any rule on this site readable by that account, including literal values
-embedded in rule actions. Only authorize this app where that access is acceptable.
-The API's separate connection metadata is excluded, but the rule definition is
-sent to Rovo for analysis; do not use with rules containing secrets in literals.
-
-## Installation
-
-Use the existing opt-in `npm run forge:deploy` and `npm run forge:install`
-workflows described in [DEVELOPMENT.md](DEVELOPMENT.md), after configuring the
-runtime credentials. Review the manifest's `read:jira-work` scope (used to check
-the caller's permissions) and backend egress to `https://api.atlassian.com`.
-Existing installations need an upgrade to accept the changed permissions.
-
-## Verification
-
-Run `npm test` for the action's offline behavior tests and `npm run check` for
-linting, Forge manifest validation, typechecking, tests, and bundle size checks.
-Tests mock only the Forge API boundary; a deployed smoke test with a real rule
-and configured credentials is still required to verify the live integration.
-
-The app fetches `GET /automation/public/jira/{cloudId}/rest/v1/rule/{ruleUuid}`
-and returns the response's `rule` object to the agent. API status failures are
-reported without response bodies; credentials and definitions are not logged.
-
-## Action diagnostics
-
-Backend actions use `@forge-ahead/errors` Results and RFC 9457 Problem Details
-internally. The Forge boundary throws an error with a sanitized problem as its
-cause, so failed retrievals never become successful Automation outputs.
-Validation, missing context, and denied access use statuses 400, 401, and 403;
-missing configuration uses 500; transport or invalid-response failures use 502.
-Automation API HTTP failures retain the upstream status.
-
-Structured `@forge-ahead/logging` records include an action name and a generated
-`requestId` shared by all records for that invocation. Progress events identify
-permission checks, credential availability, API response status, and decoding or
-definition failures. Each run ends with one `outcome` and `durationMs` summary;
-failure summaries include the sanitized problem status, type, and detail.
-`LOG_LEVEL` controls verbosity. These records are backend Forge logs, not
-Automation audit-log entries.
-
-Logs exclude payloads, user identifiers, credentials, rule definitions, response
-bodies, and raw exception messages or stacks. HTTP error bodies are deliberately
-not read or retained, even in bounded form.
-
-## Contributions
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) and [DEVELOPMENT.md](DEVELOPMENT.md).
-
-## License
-
-Apache 2.0 licensed. See [LICENSE](LICENSE).
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the contribution process and
+[SECURITY.md](SECURITY.md) for security reporting. Licensed under
+[Apache 2.0](LICENSE).
